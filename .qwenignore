@@ -1,0 +1,82 @@
+# Git
+.git/
+.gitignore
+
+# Large data files
+*.csv
+*.tsv
+*.jsonl
+*.parquet
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# Model weights and checkpoints
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.tflite
+*.pb
+
+# Generated outputs
+output/
+outputs/
+results/
+logs/
+checkpoints/
+runs/
+wandb/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.mp3
+*.wav
+*.flac
+
+# Documentation build artifacts
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+
+# Dependencies (if not needed for context)
+vendor/
+
+# Ignore Qwen session files
+.qwen/sessions/*
+# Ignore generated skill files
+.qwen/skills/*
+# Ignore any temporary output
+.qwen/output/*
+# Ignore cached data
+.qwen/cache/*
+# Temporary runtime data
+.qwen/tmp/
+.qwen/debug/
+
+# Do not track agent home directory files
+/home/agent/.ssh/
+/home/agent/.kube/
+
+# Project domain
+ca-certificates/
+debian.sources
