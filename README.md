@@ -52,6 +52,8 @@ chmod +x qode
 ./qode [path/to/project]   # defaults to the current directory
 ```
 
+You can set the `QODE_VERSION` environment variable to specify the Docker image tag to use (e.g., `QODE_VERSION=1.2.3 ./qode`).
+
 `qode` launches the **Qwen‑Code** agent inside a Docker container, mounting the specified working directory so you can work on the selected project within a fully isolated environment. It:
 * Checks for an existing `qwen-code` image and builds it if missing.
 * Creates `${PROJECT}/.qwen/sessions` for session logs.

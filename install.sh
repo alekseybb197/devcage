@@ -89,6 +89,8 @@ EOF
     else
       echo "qode script not found, skipping copy."
     fi
+    # Remove the temporary builder image tagged with -build
+    docker rmi "qwen-code:${NEW_TAG}" || true
   else
     echo "No qwen-code image found to retag."
   fi
