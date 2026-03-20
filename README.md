@@ -1,100 +1,91 @@
-# Qwen‑Code Docker Image Builder
+# DevCage
 
-A reproducible Docker image for **Qwen‑Code** that bundles all required tools
-(kubectl, helm, yq, jq, node, …) and provides a convenient entry‑point for
-recording interactive Qwen sessions.
-
-## Repository layout
-
-```
-.
-├── packer.pkr.hcl            # Packer template (HCL) – builds the image
-├── variables.pkr.hcl          # All version & feature‑toggle variables
-├── entrypoint.sh              # Wrapper that records an asciinema session,
-│                               # copies the JSON log and creates a text log.
-├── copy_session_log.sh        # (now inlined into entrypoint.sh)
-├── build_image.sh             # Helper script that runs `packer build`
-│                               # with optional `--no-*` flags.
-├── run.sh                     # Starts the built image inside a tmux session.
-├── .gitignore                 # Files/dirs ignored by Git.
-├── .qwenignore                # Files ignored by Qwen‑Code tooling.
-└── README.md                  # ↥ this file
-```
-
-### Key files
-
-| File | Purpose |
-|------|---------|
-| **packer.pkr.hcl** | Defines the Docker build steps using Packer. Conditional provisioners copy custom CA certificates, Debian sources, and optional binaries (kubectl, helm, yq, jq). |
-| **variables.pkr.hcl** | Centralised version numbers (`kubectl_version`, `helm_version`, `yq_version`, `jq_version`) and boolean toggles (`copy_certs`, `copy_sources`, `copy_kubectl`, `copy_helm`, `copy_yq`, `copy_jq`). |
-| **entrypoint.sh** | Runs `asciinema` to record a Qwen session, then copies the generated `logs.json` to `<session>.json` and converts the `.cast` file to a plain‑text `<session>.log`. |
-| **build_image.sh** | Wrapper around `packer build`. Flags `--no-certs`, `--no-sources`, `--no-kubectl`, `--no-helm`, `--no-yq`, `--no-jq` disable the corresponding optional steps. |
-| **run.sh** | Launches the built image (`qwen-code:latest`) in a tmux session, mounting the current project and the user’s `~/.qwen` configuration. Handles missing image, creates a temporary Docker run script, and provides tmux shortcuts. |
-| **.gitignore** | Prevents committing generated artefacts, caches, and language‑specific files. |
-| **.qwenignore** | Tells Qwen‑Code to ignore temporary session artefacts (`.cast`, `.log`, `.json`, tmp directories). |
-
-## Building the image
-
-```bash
-# Make sure the helper script is executable (done automatically)
-chmod +x build_image.sh
-
-# Build with all optional components (default)
-./build_image.sh
-
-# Example: omit helm and jq
-./build_image.sh --no-helm --no-jq
-```
-
-The command runs Packer, which:
-1. Starts from `debian:13.3-slim` (configurable via `base_image`).
-2. Optionally copies custom CA certificates and Debian sources.
-3. Installs system dependencies.
-4. Downloads the requested binaries directly inside the container.
-5. Installs nodejs and the Qwen‑Code CLI.
-6. Adds the `entrypoint.sh` (with the inlined log‑copy logic) to `/usr/local/bin`.
-7. Tags the final image as `qwen-code:latest`.
-
-## Running the container
-
-```bash
-chmod +x run.sh
-./run.sh   # or: ./run.sh /path/to/your/project
-```
-
-`run.sh`:
-
-* Checks that the Docker image exists (triggers `build.sh` if missing).
-* Creates a writable `.qwen/sessions` directory inside the project.
-* Starts a tmux session that runs the container as the non‑root `agent` user.
-* Mounts your project directory and the host’s `~/.qwen` configuration (skills, sessions, tmp, etc.).
-* Inside the container `entrypoint.sh` records the Qwen session, saves a JSON log and a human‑readable `.log` file.
-
-### Controlling the container
-
-| Action | Command |
-|--------|---------|
-| Detach from tmux | `Ctrl‑B D` |
-| Re‑attach | `tmux attach -t qwen‑<project‑name>` |
-| Kill session | `tmux kill-session -t qwen‑<project‑name>` |
-| View container logs (debug) | `docker logs <container‑name>` |
-| Remove stopped container | `docker rm <container‑name>` |
-
-## Session logs
-
-* **JSON log**: `<project>/.qwen/sessions/<timestamp>.json` – raw `logs.json` from Qwen.
-* **Plain‑text log**: `<project>/.qwen/sessions/<timestamp>.log` – result of `asciinema cat`.
-* **Cast file** (binary recording): `<project>/.qwen/sessions/<timestamp>.cast` (kept for possible replay).
-
-## Customisation
-
-* Edit `variables.pkr.hcl` to change base image, tool versions, or toggle features.
-* Add your own CA certificates under `ca-certificates/` or a custom `debian.sources` file; the build respects the `copy_certs` and `copy_sources` flags.
-* Extend `entrypoint.sh` if you need additional start‑up steps; it is already executable and runs as the `agent` user inside the container.
+The **DevCage** project provides a secure, isolated environment for running the **Qwen‑Code** AI‑assistant inside a Docker container. Qwen‑Code is a terminal‑based programming assistant that can generate code from natural‑language descriptions, automatically fix bugs, perform interactive debugging, and automate common development tasks. The image bundles essential tools (kubectl, helm, yq, jq, node, …) and an entrypoint that records interactive Qwen sessions into convenient logs.
 
 ---
 
-### Thanks
+## Repository Contents
 
-This setup was generated with **Qwen‑Code** and is ready for rapid iteration,
-debugging, and reproducible builds of the Qwen‑Code development environment.
+| File | Description |
+|------|-------------|
+| `packer.pkr.hcl` | Packer template defining the Docker image build. |
+| `variables.pkr.hcl` | Variables for tool versions and feature toggles. |
+| `entrypoint.sh` | Wrapper around `qwen` that records a session via `asciinema` and saves a JSON log. |
+| `install.sh` | Wrapper script for `packer build`; allows disabling optional components (helm, jq, etc.). |
+| `qode` | Script that runs the prepared image in a tmux session, mounting the current project and the `~/.qwen` configuration. |
+| `.gitignore` / `.qwenignore` | Files/directories ignored by Git and Qwen‑Code respectively. |
+| `README.md` (this file) | Project description in Russian. |
+| `README.en.md` | Project description in English. |
+
+---
+
+## Building the Image
+
+```bash
+chmod +x install.sh
+./install.sh               # build with all options (default)
+# example: build without helm and jq
+./install.sh --no-helm --no-jq
+```
+
+The script runs Packer, which after the build copies the `qode` executable to the directory specified by the `PATH` environment variable, and then:
+1. Pulls the base image `debian:13.3-slim` (configurable via `variables.pkr.hcl`).
+2. Optionally copies custom CA certificates and `sources.list`.
+3. Installs system dependencies.
+4. Downloads selected binaries (`kubectl`, `helm`, `yq`, `jq`).
+5. Installs Node.js and the `@qwen-code/qwen-code` CLI.
+6. Copies `entrypoint.sh` into the image and sets it as the entrypoint.
+7. Tags the final image as `qwen-code:<build_version>`.
+
+---
+
+## Preparing for Use
+
+The **qwen‑code** agent running inside the Docker container relies on configuration stored in the `.qwen` directory of the host user profile. It is recommended to install `qwen-code` directly on the host machine and configure `settings.json` for the desired LLM backend connection. Likewise, ensure that `/etc/hosts`, `~/.ssh`, and `~/.kube` are correctly set up, as these files are also mounted into the container.
+
+---
+
+## How to Use
+
+```bash
+chmod +x qode
+./qode [path/to/project]   # defaults to the current directory
+```
+
+`qode` launches the **Qwen‑Code** agent inside a Docker container, mounting the specified working directory so you can work on the selected project within a fully isolated environment. It:
+* Checks for an existing `qwen-code` image and builds it if missing.
+* Creates `${PROJECT}/.qwen/sessions` for session logs.
+* Mounts the project directory into the container, giving the agent access to the source code.
+* Starts the container in a tmux session as the `agent` user.
+* Inside the container, `entrypoint.sh` records the interactive Qwen session, saving a JSON log and a human‑readable `.log` file.
+
+### tmux Session Management
+
+| Action | Command |
+|--------|---------|
+| Detach | `Ctrl‑B D` |
+| Re‑attach | `tmux attach -t qwen‑<project>` |
+| Kill session | `tmux kill-session -t qwen‑<project>` |
+| View container logs | `docker logs <container‑name>` |
+
+---
+
+## Session Logs
+
+* **JSON log** – `${PROJECT}/.qwen/sessions/<timestamp>.json` (raw Qwen output).
+* **Plain‑text log** – `${PROJECT}/.qwen/sessions/<timestamp>.log` (result of `asciinema cat`).
+* **CAST file** – `${PROJECT}/.qwen/sessions/<timestamp>.cast` (for replaying the session).
+
+---
+
+## Configuration
+
+* Adjust versions and feature flags in `variables.pkr.hcl`.
+* Add custom certificates in `ca-certificates/` or a `debian.sources` file – they will be copied during the build (if `copy_certs` / `copy_sources` are enabled).
+* Extend `entrypoint.sh` with additional startup steps if needed – the script already runs inside the container as the `agent` user.
+
+---
+
+## Acknowledgments
+
+The development of **DevCage** was performed using **Qwen‑Code** running inside the DevCage environment itself. Embedding Qwen‑Code in the container enabled rapid, iterative creation, debugging, and building of this reproducible development environment for secure AI‑assistant usage.
