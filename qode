@@ -25,13 +25,18 @@ if [ ! -d "${PROJECT_PATH}" ]; then
 fi
 
 # ─── 3. Определение тега образа ─────────────────────────────────
-# Выбираем самый последний образ qwen-code по времени создания
-IMAGE_TAG=$(docker images --filter=reference='qwen-code:*' --format '{{.Tag}} {{.CreatedAt}}' | sort -r -k2 | head -n1 | awk '{print $1}')
-if [ -z "$IMAGE_TAG" ]; then
-    echo -e "${RED}❌ Не найден образ qwen-code с любым тегом!${NC}"
-    exit 1
+# Если указана переменная QODE_VERSION, используем её как тег образа; иначе ищем последний образ
+if [ -n "${QODE_VERSION}" ]; then
+    IMAGE_TAG="${QODE_VERSION}"
+    echo -e "${GREEN}✅ Используем образ qwen-code с указанным тегом:${BLUE} $IMAGE_TAG${NC}"
+else
+    IMAGE_TAG=$(docker images --filter=reference='qwen-code:*' --format '{{.Tag}} {{.CreatedAt}}' | sort -r -k2 | head -n1 | awk '{print $1}')
+    if [ -z "$IMAGE_TAG" ]; then
+        echo -e "${RED}❌ Не найден образ qwen-code с любым тегом!${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ Выбран образ qwen-code:${BLUE} $IMAGE_TAG${NC}"
 fi
-echo -e "${GREEN}✅ Выбран образ qwen-code:${BLUE} $IMAGE_TAG${NC}"
 
 # ─── 4. Подготовка директории логов ───────────────────────────
 SESSION_LOG_DIR="${PROJECT_PATH}/.qwen/sessions"
@@ -101,7 +106,7 @@ mkdir -p "${SESSION_LOG_DIR}"
 chmod 777 "${SESSION_LOG_DIR}" 2>/dev/null || true
 docker run -it ${RM_FLAG} \\
     --name "${CONTAINER_NAME}" \\
-    -v "${PROJECT_PATH}:/home/agent/workspace/${PROJECT_NAME}" \\
+    -v "${PROJECT_PATH}:/workspace/${PROJECT_NAME}" \\
     -v "${HOME}/.qwen:/home/agent/.qwen:ro" \\
     -v "${HOME}/.qwen/agents:/home/agent/.qwen/agents" \\
     -v "${HOME}/.qwen/debug:/home/agent/.qwen/debug" \\
@@ -114,7 +119,7 @@ docker run -it ${RM_FLAG} \\
     -v "/etc/hosts:/etc/hosts:ro" \\
     -e QWEN_MODEL="${QWEN_MODEL:-qwen-max}" \\
     -e QWEN_DEBUG=1 \\
-    -w /home/agent/workspace \\
+    -w /workspace \\
     --user agent \\
     --entrypoint /usr/local/bin/entrypoint.sh \\
     qwen-code:${IMAGE_TAG} ${PROJECT_NAME}

@@ -162,7 +162,7 @@ build {
 
   # Create user 'agent'
   provisioner "shell" {
-    inline = ["useradd -m -s /bin/bash agent"]
+    inline = ["groupadd -g ${var.agent_gid} agent || true", "useradd -m -s /bin/bash -u ${var.agent_uid} -g ${var.agent_gid} agent"]
   }
 
   # Copy entrypoint script
@@ -179,8 +179,8 @@ build {
   provisioner "shell" {
     inline = [
       "chown -R agent:agent /home/agent",
-      "mkdir -p /home/agent/workspace",
-      "chown -R agent:agent /home/agent/workspace"
+      "mkdir -p /workspace",
+      "chown -R agent:agent /workspace"
     ]
   }
 

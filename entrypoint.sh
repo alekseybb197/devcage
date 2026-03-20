@@ -3,7 +3,7 @@
 
 PROJECT_DIR=$1
 
-BASE_DIR="/home/agent/workspace"
+BASE_DIR="/workspace"
 if [[ "x${PROJECT_DIR}" != "x" ]]; then
   cd ${PROJECT_DIR}
   BASE_DIR="${BASE_DIR}/${PROJECT_DIR}"
@@ -52,5 +52,4 @@ fi
 OUTPUT_FILE="${LATEST_SESSION%.cast}.json"
 cp "${LOGS_FILE}" "${OUTPUT_FILE}"
 echo "Скопировано: ${LOGS_FILE} -> ${OUTPUT_FILE}"
-# Convert the .cast session recording to a plain‑text log
-asciinema cat "${LATEST_SESSION}" > "${LATEST_SESSION%.cast}.log"
+# Plain‑text conversion disabled (cast file kept)

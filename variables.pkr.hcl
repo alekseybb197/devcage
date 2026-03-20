@@ -86,8 +86,20 @@ variable "install_go" {
   default     = true
 }
 
+variable "agent_uid" {
+  description = "UID for the agent user inside the container"
+  type        = number
+  default     = 59998
+}
+
+variable "agent_gid" {
+  description = "GID for the agent group inside the container"
+  type        = number
+  default     = 59998
+}
+
 variable "build_version" {
   description = "Build version tag for Docker image"
   type        = string
-  default     = "0.0.4"
+  default     = "0.0.5"
 }
