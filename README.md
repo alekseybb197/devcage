@@ -39,6 +39,16 @@ The script runs Packer, which after the build copies the `qode` executable to th
 
 ---
 
+## Build Options
+
+You can customize the image build by adding additional resources to the build context:
+
+* **Custom CA certificates** – Place any `.crt` files in the `ca-certificates/` directory at the repository root. When `copy_certs` is enabled (default), these certificates are copied into the image at `/usr/local/share/ca-certificates` and integrated into the system's trusted store.
+
+* **Custom Debian sources** – Provide a `debian.sources` file in the repository root. When `copy_sources` is enabled (default), this file replaces the default `/etc/apt/sources.list.d/debian.sources` inside the image, allowing you to point to custom mirrors or additional repositories.
+
+These options are controlled by the boolean variables `copy_certs` and `copy_sources` in `variables.pkr.hcl`. Enable or disable them via the corresponding `--no-certs` or `--no-sources` flags when running `install.sh`, or edit the variables file directly.
+
 ## Preparing for Use
 
 The **qwen‑code** agent running inside the Docker container relies on configuration stored in the `.qwen` directory of the host user profile. It is recommended to install `qwen-code` directly on the host machine and configure `settings.json` for the desired LLM backend connection. Likewise, ensure that `/etc/hosts`, `~/.ssh`, and `~/.kube` are correctly set up, as these files are also mounted into the container.
@@ -75,7 +85,7 @@ You can set the `QODE_VERSION` environment variable to specify the Docker image 
 ## Session Logs
 
 * **JSON log** – `${PROJECT}/.qwen/sessions/<timestamp>.json` (raw Qwen output).
-* **Plain‑text log** – `${PROJECT}/.qwen/sessions/<timestamp>.log` (result of `asciinema cat`).
+* **Prompt extraction JSON** – `${PROJECT}/.qwen/sessions/<timestamp>_prompts.json` (list of prompt strings extracted from the `.cast` file via `cast-extractor.py`).
 * **CAST file** – `${PROJECT}/.qwen/sessions/<timestamp>.cast` (for replaying the session).
 
 ---
