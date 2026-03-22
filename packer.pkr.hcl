@@ -17,6 +17,10 @@ source "docker" "qwen" {
   ]
 }
 
+locals {
+  pypy_mirror_arg = var.pypy_mirror != "" ? "-i ${var.pypy_mirror}" : ""
+}
+
 build {
   name    = "qwen-code-image"
   sources = ["source.docker.qwen"]
@@ -175,12 +179,26 @@ build {
     inline = ["chmod +x /usr/local/bin/entrypoint.sh"]
   }
 
+  # Copy cast-extractor script
+  provisioner "file" {
+    source      = "cast-extractor.py"
+    destination = "/usr/local/bin/cast-extractor.py"
+  }
+
   # Setup home directory and workspace permissions
   provisioner "shell" {
     inline = [
       "chown -R agent:agent /home/agent",
       "mkdir -p /workspace",
       "chown -R agent:agent /workspace"
+    ]
+  }
+
+  # Create devcage-release file with build version
+  provisioner "shell" {
+    inline = [
+      "echo \"BUILD_VERSION=${var.build_version}\" > /home/agent/devcage-release",
+      "chown agent:agent /home/agent/devcage-release"
     ]
   }
 
@@ -211,9 +229,9 @@ build {
       inline = [
         # Switch to user 'agent' for subsequent layers (no direct USER support, use su)
         "su - agent -c 'python3 -m venv /home/agent/venv'",
-        "su - agent -c '/home/agent/venv/bin/pip install --upgrade pip'",
-        "su - agent -c '/home/agent/venv/bin/pip install ansible --upgrade'",
-        "su - agent -c '/home/agent/venv/bin/pip install ansible-lint --upgrade'"
+        "su - agent -c '/home/agent/venv/bin/pip install ${local.pypy_mirror_arg} --upgrade pip'",
+        "su - agent -c '/home/agent/venv/bin/pip install ${local.pypy_mirror_arg} ansible --upgrade'",
+        "su - agent -c '/home/agent/venv/bin/pip install ${local.pypy_mirror_arg} ansible-lint --upgrade'"
       ]
     }
   }

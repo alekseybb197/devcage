@@ -101,5 +101,11 @@ variable "agent_gid" {
 variable "build_version" {
   description = "Build version tag for Docker image"
   type        = string
-  default     = "0.0.5"
+  default     = "0.0.8"
+}
+
+variable "pypy_mirror" {
+  description = "PyPI mirror for PyPy packages, i.e. https://pypi.tuna.tsinghua.edu.cn/simple"
+  type        = string
+  default     = "https://pypi.tuna.tsinghua.edu.cn/simple"
 }
