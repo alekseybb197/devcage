@@ -49,6 +49,13 @@ if [[ ! -d "ca-certificates" ]] && [[ "$COPY_CERTS" == true ]]; then
   COPY_CERTS=false
 fi
 
+# Extract version from README.md
+NEW_BUILD_VERSION=$(head -n1 README.md | awk '{print $NF}')
+
+# Update variables.pkr.hcl with the extracted version
+sed -i.bak -E "/variable \"build_version\"/,/}/ s/(default[[:space:]]*=[[:space:]]*\")([^\"]*)(\")/\1${NEW_BUILD_VERSION}\3/" variables.pkr.hcl && rm -f variables.pkr.hcl.bak
+
+
 # Run packer with the computed variables
 packer build \
   -var "copy_certs=${COPY_CERTS}" \

@@ -1,4 +1,4 @@
-# DevCage
+# DevCage 0.0.11
 
 The **DevCage** project provides a secure, isolated environment for running the **Qwen‑Code** AI‑assistant inside a Docker container. Qwen‑Code is a terminal‑based programming assistant that can generate code from natural‑language descriptions, automatically fix bugs, perform interactive debugging, and automate common development tasks. The image bundles essential tools (kubectl, helm, yq, jq, node, …) and an entrypoint that records interactive Qwen sessions into convenient logs.
 
@@ -10,32 +10,41 @@ The **DevCage** project provides a secure, isolated environment for running the 
 |------|-------------|
 | `packer.pkr.hcl` | Packer template defining the Docker image build. |
 | `variables.pkr.hcl` | Variables for tool versions and feature toggles. |
+| `build.sh` | Builds the Docker image using Packer with optional feature flags. |
+| `install.sh` | Installs the `run.sh` script as `/usr/local/bin/qode`. |
+| `run.sh` | Launches the prepared image in a tmux session, mounting the project and configuration. |
 | `entrypoint.sh` | Wrapper around `qwen` that records a session via `asciinema` and saves a JSON log. |
-| `install.sh` | Wrapper script for `packer build`; allows disabling optional components (helm, jq, etc.). |
-| `qode` | Script that runs the prepared image in a tmux session, mounting the current project and the `~/.qwen` configuration. |
+| `Makefile` | Provides `make build` and `make install` shortcuts for the scripts. |
+| `cast-extractor.py` | Extracts prompts from CAST logs. |
+| `CONTRIBUTING.md` | Guidelines for contributing to the project. |
+| `LICENSE` | License information. |
 | `.gitignore` / `.qwenignore` | Files/directories ignored by Git and Qwen‑Code respectively. |
-| `README.md` (this file) | Project description in Russian. |
-| `README.en.md` | Project description in English. |
+| `README.md` (this file) | Project description in English. |
 
 ---
 
 ## Building the Image
 
+You can build the Docker image either directly with the `build.sh` script or via the Makefile shortcut:
+
 ```bash
-chmod +x install.sh
-./install.sh               # build with all options (default)
-# example: build without helm and jq
-./install.sh --no-helm --no-jq
+chmod +x build.sh
+# Direct script usage – pass any of the optional flags defined in build.sh
+./build.sh [options]
+
+# Makefile shortcut (recommended) – forwards options via BUILD_OPTS variable
+make build               # equivalent to ./build.sh
+make build BUILD_OPTS="--no-helm --no-jq"  # example: skip helm and jq
 ```
 
-The script runs Packer, which after the build copies the `qode` executable to the directory specified by the `PATH` environment variable, and then:
-1. Pulls the base image `debian:13.3-slim` (configurable via `variables.pkr.hcl`).
-2. Optionally copies custom CA certificates and `sources.list`.
-3. Installs system dependencies.
-4. Downloads selected binaries (`kubectl`, `helm`, `yq`, `jq`).
-5. Installs Node.js and the `@qwen-code/qwen-code` CLI.
-6. Copies `entrypoint.sh` into the image and sets it as the entrypoint.
-7. Tags the final image as `qwen-code:<build_version>`.
+The `build.sh` script runs Packer with the computed variables and, upon successful build, retags and finalizes the image. The process includes:
+1. Pulling the base image `debian:13.3-slim` (configurable via `variables.pkr.hcl`).
+2. Optionally copying custom CA certificates and `sources.list`.
+3. Installing system dependencies.
+4. Downloading selected binaries (`kubectl`, `helm`, `yq`, `jq`).
+5. Installing Node.js and the `@qwen-code/qwen-code` CLI.
+6. Adding `entrypoint.sh` as the container entrypoint.
+7. Tagging the final image as `qwen-code:<build_version>`.
 
 ---
 
@@ -48,6 +57,21 @@ You can customize the image build by adding additional resources to the build co
 * **Custom Debian sources** – Provide a `debian.sources` file in the repository root. When `copy_sources` is enabled (default), this file replaces the default `/etc/apt/sources.list.d/debian.sources` inside the image, allowing you to point to custom mirrors or additional repositories.
 
 These options are controlled by the boolean variables `copy_certs` and `copy_sources` in `variables.pkr.hcl`. Enable or disable them via the corresponding `--no-certs` or `--no-sources` flags when running `install.sh`, or edit the variables file directly.
+
+## Installation
+
+You can install the helper script using the `install.sh` script or via the Makefile shortcut:
+
+```bash
+chmod +x install.sh
+# Direct script usage – copies run.sh to /usr/local/bin/qode
+./install.sh
+
+# Makefile shortcut (recommended) – runs the same script
+make install            # equivalent to ./install.sh
+```
+
+The `install.sh` script copies `run.sh` to `/usr/local/bin/qode` and makes it executable. The Makefile `install` target runs the same script.
 
 ## Preparing for Use
 

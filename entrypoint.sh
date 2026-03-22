@@ -32,8 +32,6 @@ echo "📝 Recording session: ${SESSION_CAST}"
 # Logs are immediately visible on the host if the directory is mounted via -v
 asciinema rec --stdin "${SESSION_CAST}" -c "qwen"
 # After the session finishes, copy the session log
-# After the session finishes, copy the session log
-set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP_DIR="${HOME}/.qwen/tmp"
 
@@ -41,11 +39,13 @@ TMP_DIR="${HOME}/.qwen/tmp"
 LATEST_TMP_DIR=$(ls -t "${TMP_DIR}"/*/logs.json 2>/dev/null | head -1 | xargs -I{} dirname {})
 if [[ -z "${LATEST_TMP_DIR}" ]]; then
   echo "Error: no directories found in ${TMP_DIR}" >&2
+  sleep infinity
   exit 1
 fi
 LOGS_FILE="${LATEST_TMP_DIR}/logs.json"
 if [[ ! -f "${LOGS_FILE}" ]]; then
   echo "Error: logs.json not found in ${LATEST_TMP_DIR}" >&2
+  sleep infinity
   exit 1
 fi
 
@@ -53,6 +53,7 @@ fi
 LATEST_SESSION=$(ls -t "${LOG_DIR}"/*.cast 2>/dev/null | head -1)
 if [[ -z "${LATEST_SESSION}" ]]; then
   echo "Error: no session files found in ${LOG_DIR}" >&2
+  sleep infinity
   exit 1
 fi
 
@@ -61,4 +62,8 @@ cp "${LOGS_FILE}" "${OUTPUT_FILE}"
 echo "Copied: ${LOGS_FILE} -> ${OUTPUT_FILE}"
 # Plain‑text conversion disabled (cast file kept)
 # Convert .cast to .json using cast-extractor
-cast-extractor.py "${SESSION_CAST}" -o "${SESSION_CAST%.cast}.cast.json"
+cast-extractor.py "${SESSION_CAST}" -o "${SESSION_CAST%.cast}.cast.json" || {
+  echo "Error: can't extract input lines from cast file" >&2
+  sleep infinity
+  exit 1
+}
