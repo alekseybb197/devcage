@@ -112,4 +112,5 @@ docs/_build/
 # Project domain
 ca-certificates/
 debian.sources
+.qwen/
 
