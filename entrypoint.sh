@@ -9,12 +9,10 @@ if [[ "x${PROJECT_DIR}" != "x" ]]; then
   BASE_DIR="${BASE_DIR}/${PROJECT_DIR}"
 fi
 
-LOG_DIR="${BASE_DIR}/.qwen/sessions"
-mkdir -p "${LOG_DIR}"
-
 QWEN_DIR="${BASE_DIR}/.qwen"
 test -d "${QWEN_DIR}/skills"   || mkdir -p "${QWEN_DIR}/skills"
 test -d "${QWEN_DIR}/sessions" || mkdir -p "${QWEN_DIR}/sessions"
+SESSION_DIR="${QWEN_DIR}/sessions"
 
 # Determine build version from ~/devcage-release
 if [[ -f "${HOME}/devcage-release" ]]; then
@@ -23,47 +21,26 @@ else
   BUILD_VERSION="unknown"
 fi
 echo "🛠️ Build version: $BUILD_VERSION"
-SESSION_CAST="${LOG_DIR}/session-$(date +%Y%m%d-%H%M%S).cast"
-echo "📝 Recording session: ${SESSION_CAST}"
-# .cast file format (JSON-based, no noise)
 
-# --stdin: record user input
-# --command: command to execute
-# Logs are immediately visible on the host if the directory is mounted via -v
-asciinema rec --stdin "${SESSION_CAST}" -c "qwen"
-# After the session finishes, copy the session log
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TMP_DIR="${HOME}/.qwen/tmp"
-
-# Find the most recent logs.json in ~/.qwen/tmp/
-LATEST_TMP_DIR=$(ls -t "${TMP_DIR}"/*/logs.json 2>/dev/null | head -1 | xargs -I{} dirname {})
-if [[ -z "${LATEST_TMP_DIR}" ]]; then
-  echo "Error: no directories found in ${TMP_DIR}" >&2
-  sleep infinity
-  exit 1
-fi
-LOGS_FILE="${LATEST_TMP_DIR}/logs.json"
-if [[ ! -f "${LOGS_FILE}" ]]; then
-  echo "Error: logs.json not found in ${LATEST_TMP_DIR}" >&2
-  sleep infinity
-  exit 1
+# Save Qwen session ID if not already exists
+if [[ ! -f "${QWEN_DIR}/session.id" ]]; then
+  qwen -p "show session id" --output-format json | jq -r '.[0].session_id' > "${QWEN_DIR}/session.id"
 fi
 
-# Find the newest .cast session file
-LATEST_SESSION=$(ls -t "${LOG_DIR}"/*.cast 2>/dev/null | head -1)
-if [[ -z "${LATEST_SESSION}" ]]; then
-  echo "Error: no session files found in ${LOG_DIR}" >&2
-  sleep infinity
-  exit 1
-fi
+# Read session ID for resume
+SESSION_ID=$(cat "${QWEN_DIR}/session.id" 2>/dev/null)
 
-OUTPUT_FILE="${LATEST_SESSION%.cast}.host.json"
-cp "${LOGS_FILE}" "${OUTPUT_FILE}"
-echo "Copied: ${LOGS_FILE} -> ${OUTPUT_FILE}"
-# Plain‑text conversion disabled (cast file kept)
-# Convert .cast to .json using cast-extractor
-cast-extractor.py "${SESSION_CAST}" -o "${SESSION_CAST%.cast}.cast.json" || {
-  echo "Error: can't extract input lines from cast file" >&2
-  sleep infinity
-  exit 1
-}
+# Run qwen with session resume
+qwen --resume "${SESSION_ID}"
+
+# Copy session log from ~/.qwen/projects/{project-folder}/{SESSION_ID}.jsonl to SESSION_DIR
+PROJECT_FOLDER=$(echo "${BASE_DIR}" | tr '/' '-')
+SESSION_LOG="${HOME}/.qwen/projects/${PROJECT_FOLDER}/chats/${SESSION_ID}.jsonl"
+SESSION_LOG_DEST="${SESSION_DIR}/$(date +%Y%m%d-%H%M%S)-${SESSION_ID}.jsonl"
+
+if [[ -f "${SESSION_LOG}" ]]; then
+  cp "${SESSION_LOG}" "${SESSION_LOG_DEST}"
+  echo "Copied session log: ${SESSION_LOG} -> ${SESSION_LOG_DEST}"
+else
+  echo "Warning: session log not found at ${SESSION_LOG}" >&2
+fi

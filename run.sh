@@ -110,6 +110,7 @@ docker run -it ${RM_FLAG} \
     -v "${HOME}/.qwen:/home/agent/.qwen:ro" \
     -v "${HOME}/.qwen/agents:/home/agent/.qwen/agents" \
     -v "${HOME}/.qwen/debug:/home/agent/.qwen/debug" \
+    -v "${HOME}/.qwen/insight:/home/agent/.qwen/insight" \
     -v "${HOME}/.qwen/projects:/home/agent/.qwen/projects" \
     -v "${HOME}/.qwen/skills:/home/agent/.qwen/skills" \
     -v "${HOME}/.qwen/tmp:/home/agent/.qwen/tmp" \
