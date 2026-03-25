@@ -74,7 +74,7 @@ build {
   provisioner "shell" {
     inline = [
       "apt-get update",
-      "apt-get install -y git curl wget gnupg2 python3 python3-pip python3-venv make g++ openssh-client bsdutils asciinema procps",
+      "apt-get install -y git curl wget gnupg2 python3 python3-pip python3-venv make g++ openssh-client bsdutils procps",
       "rm -rf /var/lib/apt/lists/*"
     ]
   }
@@ -179,12 +179,6 @@ build {
     inline = ["chmod +x /usr/local/bin/entrypoint.sh"]
   }
 
-  # Copy cast-extractor script
-  provisioner "file" {
-    source      = "cast-extractor.py"
-    destination = "/usr/local/bin/cast-extractor.py"
-  }
-
   # Setup home directory and workspace permissions
   provisioner "shell" {
     inline = [
@@ -238,7 +232,7 @@ build {
 
   # Set working directory (Dockerfile uses WORKDIR)
   provisioner "shell" {
-    inline = ["export WORKDIR=/home/agent/workspace"]
+    inline = ["export WORKDIR=/workspace"]
   }
 
   # Post‑processor to tag the built image

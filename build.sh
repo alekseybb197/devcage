@@ -86,7 +86,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 USER agent
-WORKDIR /home/agent/workspace
+WORKDIR /workspace
 EOF
     # Remove the temporary builder image tagged with -build
     docker rmi "qwen-code:${NEW_TAG}" || true

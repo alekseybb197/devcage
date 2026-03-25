@@ -321,6 +321,26 @@ This command performs the following:
 
 Where `SESSION_NAME` has the format `qwen-<project_name>`.
 
+### Session Management
+
+The current session ID is stored in the file:
+
+```
+<project_path>/.qwen/session.id
+```
+
+At each launch, the agent automatically resumes the session specified in this file. This allows you to continue working from where you left off.
+
+**Starting a new session:**
+
+If you need to start a fresh session in the project, simply delete the `session.id` file:
+
+```bash
+rm <project_path>/.qwen/session.id
+```
+
+On the next launch, a new session will be created automatically.
+
 ### Work Logs
 
 Agent work logs are saved to the directory:
@@ -332,8 +352,32 @@ Agent work logs are saved to the directory:
 And also to the session file:
 
 ```
-<project_path>/.qwen/sessions/session.log
+<project_path>/.qwen/sessions/
 ```
+
+### Session Log Format
+
+After each session completes, the session log is automatically copied to the project's session directory with a timestamped filename:
+
+```
+<project_path>/.qwen/sessions/YYYYMMDD-HHMMSS-{SESSION_ID}.jsonl
+```
+
+Where:
+- **`YYYYMMDD-HHMMSS`** — Date and time prefix (e.g., `20260325-143022`)
+- **`{SESSION_ID}`** — Unique session identifier
+- **`.jsonl`** — JSON Lines format (one JSON object per line)
+
+Example filename:
+
+```
+20260325-143022-abc12345-6789-def0.jsonl
+```
+
+This format allows you to:
+- Track session history chronologically
+- Identify sessions by date/time and ID
+- Parse logs programmatically (JSONL format)
 
 ---
 
