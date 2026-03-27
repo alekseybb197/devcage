@@ -1,7 +1,36 @@
 #!/bin/bash
 # entrypoint.sh — wrapper around qwen, logs the session via script
 
-PROJECT_DIR=$1
+# ─── 1. Parse command line arguments ──────────────────────────
+DEBUG_MODE=0
+NEW_SESSION=0
+PROJECT_DIR=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --debug)
+            DEBUG_MODE=1
+            shift
+            ;;
+        --new)
+            NEW_SESSION=1
+            shift
+            ;;
+        --*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            if [ -z "${PROJECT_DIR}" ]; then
+                PROJECT_DIR="$1"
+            else
+                echo "Unexpected argument: $1" >&2
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
 
 BASE_DIR="/workspace"
 if [[ "x${PROJECT_DIR}" != "x" ]]; then
@@ -22,6 +51,14 @@ else
 fi
 echo "🛠️ Build version: $BUILD_VERSION"
 
+# Handle --new flag: remove old session.id to force new session
+if [[ "${NEW_SESSION}" = "1" ]]; then
+  echo "🔄 --new flag: creating new session"
+  if [[ -f "${QWEN_DIR}/session.id" ]]; then
+    rm -f "${QWEN_DIR}/session.id"
+  fi
+fi
+
 # Save Qwen session ID if not already exists
 if [[ ! -f "${QWEN_DIR}/session.id" ]]; then
   qwen -p "show session id" --output-format json | jq -r '.[0].session_id' > "${QWEN_DIR}/session.id"
@@ -30,17 +67,37 @@ fi
 # Read session ID for resume
 SESSION_ID=$(cat "${QWEN_DIR}/session.id" 2>/dev/null)
 
-# Run qwen with session resume
-qwen --resume "${SESSION_ID}"
+echo "📋 Session ID: ${SESSION_ID}"
 
-# Copy session log from ~/.qwen/projects/{project-folder}/{SESSION_ID}.jsonl to SESSION_DIR
-PROJECT_FOLDER=$(echo "${BASE_DIR}" | tr '/' '-')
-SESSION_LOG="${HOME}/.qwen/projects/${PROJECT_FOLDER}/chats/${SESSION_ID}.jsonl"
-SESSION_LOG_DEST="${SESSION_DIR}/$(date +%Y%m%d-%H%M%S)-${SESSION_ID}.jsonl"
+# Debug mode: print environment and configuration
+if [[ "${DEBUG_MODE}" = "1" ]]; then
+  echo "🔧 Debug mode enabled"
+  echo "   PROJECT_DIR: ${PROJECT_DIR}"
+  echo "   BASE_DIR: ${BASE_DIR}"
+  echo "   QWEN_DIR: ${QWEN_DIR}"
+  echo "   NEW_SESSION: ${NEW_SESSION}"
+  echo ""
+  echo "🔹 Container is ready for debugging. Connect from outside and run 'qwen' manually."
+  echo "   Example: docker exec -it ${HOSTNAME} bash"
+  echo ""
+  echo "⏳ Waiting indefinitely (sleep infinity)..."
+  sleep infinity
 
-if [[ -f "${SESSION_LOG}" ]]; then
-  cp "${SESSION_LOG}" "${SESSION_LOG_DEST}"
-  echo "Copied session log: ${SESSION_LOG} -> ${SESSION_LOG_DEST}"
 else
-  echo "Warning: session log not found at ${SESSION_LOG}" >&2
+
+  # Normal mode: run qwen with session resume
+  qwen --resume "${SESSION_ID}"
+  
+  # Copy session log from ~/.qwen/projects/{project-folder}/{SESSION_ID}.jsonl to SESSION_DIR
+  PROJECT_FOLDER=$(echo "${BASE_DIR}" | tr '/' '-')
+  SESSION_LOG="${HOME}/.qwen/projects/${PROJECT_FOLDER}/chats/${SESSION_ID}.jsonl"
+  SESSION_LOG_DEST="${SESSION_DIR}/$(date +%Y%m%d-%H%M%S)-${SESSION_ID}.jsonl"
+  
+  if [[ -f "${SESSION_LOG}" ]]; then
+    cp "${SESSION_LOG}" "${SESSION_LOG_DEST}"
+    echo "Copied session log: ${SESSION_LOG} -> ${SESSION_LOG_DEST}"
+  else
+    echo "Warning: session log not found at ${SESSION_LOG}" >&2
+  fi
+
 fi
