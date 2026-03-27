@@ -101,7 +101,7 @@ variable "agent_gid" {
 variable "build_version" {
   description = "Build version tag for Docker image"
   type        = string
-  default     = "0.0.16"
+  default     = "0.0.17"
 }
 
 variable "pypy_mirror" {
