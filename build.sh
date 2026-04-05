@@ -70,16 +70,16 @@ packer build \
   .
 
 if [ $? -eq 0 ]; then
-  # After successful packer build, retag the latest qwen-code image with a '-build' suffix
-  IMAGE_TAG=$(docker images --filter=reference='qwen-code:*' --format '{{.Tag}} {{.CreatedAt}}' | sort -r -k2 | head -n1 | awk '{print $1}')
+  # After successful packer build, retag the latest devcage image with a '-build' suffix
+  IMAGE_TAG=$(docker images --filter=reference='devcage:*' --format '{{.Tag}} {{.CreatedAt}}' | sort -r -k2 | head -n1 | awk '{print $1}')
   if [ -n "$IMAGE_TAG" ]; then
     NEW_TAG="${IMAGE_TAG}-build"
-    echo "Tagging image qwen-code:${IMAGE_TAG} as qwen-code:${NEW_TAG}"
-    docker tag "qwen-code:${IMAGE_TAG}" "qwen-code:${NEW_TAG}"
+    echo "Tagging image devcage:${IMAGE_TAG} as devcage:${NEW_TAG}"
+    docker tag "devcage:${IMAGE_TAG}" "devcage:${NEW_TAG}"
 
     # Build a new image with merged layers from the retagged image
-    cat <<EOF | docker build -t "qwen-code:${IMAGE_TAG}" -f - .
-FROM qwen-code:${NEW_TAG} AS builder
+    cat <<EOF | docker build -t "devcage:${IMAGE_TAG}" -f - .
+FROM devcage:${NEW_TAG} AS builder
 FROM scratch
 COPY --from=builder / /
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -89,8 +89,8 @@ USER agent
 WORKDIR /workspace
 EOF
     # Remove the temporary builder image tagged with -build
-    docker rmi "qwen-code:${NEW_TAG}" || true
+    docker rmi "devcage:${NEW_TAG}" || true
   else
-    echo "No qwen-code image found to retag."
+    echo "No devcage image found to retag."
   fi
 fi

@@ -13,6 +13,8 @@ NC='\033[0m'
 DEBUG_MODE=0
 NEW_SESSION=0
 PROJECT_PATH=""
+DEVCAGE_ROLE="${DEVCAGE_ROLE:-default}"
+DEVCAGE_NODE="${DEVCAGE_NODE:-default}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -24,6 +26,14 @@ while [[ $# -gt 0 ]]; do
             NEW_SESSION=1
             shift
             ;;
+        --role)
+            DEVCAGE_ROLE="$2"
+            shift 2
+            ;;
+        --node)
+            DEVCAGE_NODE="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "Usage: $(basename "$0") [OPTIONS] [PROJECT_PATH]"
             echo ""
@@ -32,6 +42,8 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --debug      Pass --debug flag to entrypoint (debug mode in container)"
             echo "  --new        Pass --new flag to entrypoint (new Qwen session)"
+            echo "  --role ROLE  Set DEVCAGE_ROLE (default: default)"
+            echo "  --node NODE  Set DEVCAGE_NODE (default: default)"
             echo "  -h, --help   Show this help message"
             echo ""
             echo "Arguments:"
@@ -42,6 +54,7 @@ while [[ $# -gt 0 ]]; do
             echo "  $(basename "$0") /path/to/project"
             echo "  $(basename "$0") --debug --new /path/to/project"
             echo "  $(basename "$0") --new /path/to/project --debug"
+            echo "  $(basename "$0") --role developer --node server1 /path/to/project"
             exit 0
             ;;
         --*)
@@ -70,8 +83,8 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_PATH="$(cd "${PROJECT_PATH}" && pwd)"
 PROJECT_NAME="$(basename "${PROJECT_PATH}")"
-SESSION_NAME="qwen-${PROJECT_NAME}"
-CONTAINER_NAME="qwen-${PROJECT_NAME}-$(date +%s)"
+SESSION_NAME="devcage-${DEVCAGE_ROLE}-${DEVCAGE_NODE}"
+CONTAINER_NAME="devcage-${DEVCAGE_ROLE}-${DEVCAGE_NODE}"
 
 # ─── 2. Path Check ──────────────────────────────────────────
 if [ ! -d "${PROJECT_PATH}" ]; then
@@ -80,17 +93,17 @@ if [ ! -d "${PROJECT_PATH}" ]; then
 fi
 
 # ─── 3. Image Tag Determination ─────────────────────────────────
-# If QODE_VERSION is set, use it as the image tag; otherwise, find the latest image
-if [ -n "${QODE_VERSION}" ]; then
-    IMAGE_TAG="${QODE_VERSION}"
-    echo -e "${GREEN}✅ Using qwen-code image with specified tag:${BLUE} $IMAGE_TAG${NC}"
+# If DEVCAGE_VERSION is set, use it as the image tag; otherwise, find the latest image
+if [ -n "${DEVCAGE_VERSION}" ]; then
+    IMAGE_TAG="${DEVCAGE_VERSION}"
+    echo -e "${GREEN}✅ Using devcage image with specified tag:${BLUE} $IMAGE_TAG${NC}"
 else
-    IMAGE_TAG=$(docker images --filter=reference='qwen-code:*' --format '{{.Tag}} {{.CreatedAt}}' | sort -r -k2 | head -n1 | awk '{print $1}')
+    IMAGE_TAG=$(docker images --filter=reference='devcage:*' --format '{{.Tag}} {{.CreatedAt}}' | sort -r -k2 | head -n1 | awk '{print $1}')
     if [ -z "$IMAGE_TAG" ]; then
-        echo -e "${RED}❌ No qwen-code image found with any tag!${NC}"
+        echo -e "${RED}❌ No devcage image found with any tag!${NC}"
         exit 1
     fi
-    echo -e "${GREEN}✅ Selected qwen-code image:${BLUE} $IMAGE_TAG${NC}"
+    echo -e "${GREEN}✅ Selected devcage image:${BLUE} $IMAGE_TAG${NC}"
 fi
 
 # ─── 4. Prepare session log directory ───────────────────────────
@@ -101,19 +114,20 @@ chmod 777 "${SESSION_LOG_DIR}" 2>/dev/null || true
 echo -e "${GREEN}📝 Session log: ${BLUE}${SESSION_LOG_DIR}/session.log${NC}"
 echo ""
 
-# ─── 4.1. Check and create required ~/.qwen directories ─────────
+# ─── 4.1. Check and create required ~/.devcage/roles/<role>/.qwen directories ─
+DEVCAGE_QWEN_DIR="${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen"
 QWEN_DIRS=(
-    "${HOME}/.qwen"
-    "${HOME}/.qwen/agents"
-    "${HOME}/.qwen/debug"
-    "${HOME}/.qwen/insights"
-    "${HOME}/.qwen/projects"
-    "${HOME}/.qwen/skills"
-    "${HOME}/.qwen/tmp"
-    "${HOME}/.qwen/todos"
+    "${DEVCAGE_QWEN_DIR}"
+    "${DEVCAGE_QWEN_DIR}/agents"
+    "${DEVCAGE_QWEN_DIR}/debug"
+    "${DEVCAGE_QWEN_DIR}/insights"
+    "${DEVCAGE_QWEN_DIR}/projects"
+    "${DEVCAGE_QWEN_DIR}/skills"
+    "${DEVCAGE_QWEN_DIR}/tmp"
+    "${DEVCAGE_QWEN_DIR}/todos"
 )
 
-echo -e "${GREEN}🔍 Checking ~/.qwen directories...${NC}"
+echo -e "${GREEN}🔍 Checking devcage role .qwen directories...${NC}"
 for dir in "${QWEN_DIRS[@]}"; do
     if [ ! -d "${dir}" ]; then
         echo -e "${YELLOW}⚠️  Creating missing directory: ${BLUE}${dir}${NC}"
@@ -121,6 +135,8 @@ for dir in "${QWEN_DIRS[@]}"; do
     fi
 done
 echo -e "${GREEN}✅ All required directories are ready.${NC}"
+echo -e "${GREEN}🎭 Role: ${BLUE}${DEVCAGE_ROLE}${NC}"
+echo -e "${GREEN}🔗 Node: ${BLUE}${DEVCAGE_NODE}${NC}"
 echo ""
 
 # ─── 5. tmux check (only if not in debug mode) ─────────────────
@@ -191,23 +207,25 @@ chmod 777 "${SESSION_LOG_DIR}" 2>/dev/null || true
 docker run -it ${RM_FLAG} \
     --name "${CONTAINER_NAME}" \
     -v "${PROJECT_PATH}:/workspace/${PROJECT_NAME}" \
-    -v "${HOME}/.qwen:/home/agent/.qwen:ro" \
-    -v "${HOME}/.qwen/agents:/home/agent/.qwen/agents" \
-    -v "${HOME}/.qwen/debug:/home/agent/.qwen/debug" \
-    -v "${HOME}/.qwen/insights:/home/agent/.qwen/insights" \
-    -v "${HOME}/.qwen/projects:/home/agent/.qwen/projects" \
-    -v "${HOME}/.qwen/skills:/home/agent/.qwen/skills" \
-    -v "${HOME}/.qwen/tmp:/home/agent/.qwen/tmp" \
-    -v "${HOME}/.qwen/todos:/home/agent/.qwen/todos" \
+    -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen:/home/agent/.qwen:ro" \
+    -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen/agents:/home/agent/.qwen/agents" \
+    -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen/debug:/home/agent/.qwen/debug" \
+    -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen/insights:/home/agent/.qwen/insights" \
+    -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen/projects:/home/agent/.qwen/projects" \
+    -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen/skills:/home/agent/.qwen/skills" \
+    -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen/tmp:/home/agent/.qwen/tmp" \
+    -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen/todos:/home/agent/.qwen/todos" \
     -v "${HOME}/.ssh:/home/agent/.ssh:ro" \
     -v "${HOME}/.kube:/home/agent/.kube:ro" \
     -v "/etc/hosts:/etc/hosts:ro" \
     -e QWEN_MODEL="${QWEN_MODEL:-qwen-max}" \
     -e QWEN_DEBUG=1 \
+    -e DEVCAGE_ROLE="${DEVCAGE_ROLE}" \
+    -e DEVCAGE_NODE="${DEVCAGE_NODE}" \
     -w /workspace \
     --user agent \
     --entrypoint /usr/local/bin/entrypoint.sh \
-    qwen-code:${IMAGE_TAG} ${PROJECT_NAME}${ENTRYPOINT_ARGS}
+    devcage:${IMAGE_TAG} ${PROJECT_NAME}${ENTRYPOINT_ARGS}
 # Remove the temporary script after execution
 rm -f "${TMP_SCRIPT}"
 DOCKER_CMD
@@ -236,7 +254,7 @@ else
     echo -e "   • Reattach:    ${BLUE}tmux attach -t ${SESSION_NAME}${NC}"
     echo -e "   • Kill session: ${BLUE}tmux kill-session -t ${SESSION_NAME}${NC}"
     echo -e ""
-    echo -e "   ${BLUE}Qwen logs:${NC} ~/.qwen/debug/"
+    echo -e "   ${BLUE}Qwen logs:${NC} ~/.devcage/roles/${DEVCAGE_ROLE}/.qwen/debug/"
     echo -e ""
 
     tmux attach -t "${SESSION_NAME}"
