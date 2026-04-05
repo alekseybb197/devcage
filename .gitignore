@@ -114,3 +114,6 @@ ca-certificates/
 debian.sources
 .qwen/
 
+
+# Devcage
+.devcage/

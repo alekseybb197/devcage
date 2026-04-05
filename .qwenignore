@@ -80,3 +80,6 @@ vendor/
 # Project domain
 ca-certificates/
 debian.sources
+
+# Devcage
+.devcage/

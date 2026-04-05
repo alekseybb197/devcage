@@ -8,7 +8,7 @@ packer {
   }
 }
 
-source "docker" "qwen" {
+source "docker" "devcage" {
   image  = var.base_image
   commit = true
 
@@ -22,8 +22,8 @@ locals {
 }
 
 build {
-  name    = "qwen-code-image"
-  sources = ["source.docker.qwen"]
+  name    = "devcage-image"
+  sources = ["source.docker.devcage"]
 
   # Conditional copy of certificates and related setup
   dynamic "provisioner" {
@@ -237,7 +237,7 @@ build {
 
   # Post‑processor to tag the built image
   post-processor "docker-tag" {
-    repository = "qwen-code"
+    repository = "devcage"
     tag        = [var.build_version]
   }
 }

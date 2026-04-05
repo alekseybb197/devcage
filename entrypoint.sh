@@ -38,10 +38,21 @@ if [[ "x${PROJECT_DIR}" != "x" ]]; then
   BASE_DIR="${BASE_DIR}/${PROJECT_DIR}"
 fi
 
+# ─── 2. Initialize DEVCAGE_ROLE and DEVCAGE_NODE ──────────────
+DEVCAGE_ROLE="${DEVCAGE_ROLE:-default}"
+DEVCAGE_NODE="${DEVCAGE_NODE:-default}"
+DEVCAGE_NODE_DIR="${BASE_DIR}/.devcage/${DEVCAGE_NODE}"
+
+echo "🎭 Devcage role: ${DEVCAGE_ROLE}"
+echo "🔗 Devcage node: ${DEVCAGE_NODE}"
+
 QWEN_DIR="${BASE_DIR}/.qwen"
 test -d "${QWEN_DIR}/skills"   || mkdir -p "${QWEN_DIR}/skills"
 test -d "${QWEN_DIR}/sessions" || mkdir -p "${QWEN_DIR}/sessions"
 SESSION_DIR="${QWEN_DIR}/sessions"
+
+# Check and create .devcage node directory for session storage
+test -d "${DEVCAGE_NODE_DIR}"       || mkdir -p "${DEVCAGE_NODE_DIR}"
 
 # Determine build version from ~/devcage-release
 if [[ -f "${HOME}/devcage-release" ]]; then
@@ -54,18 +65,18 @@ echo "🛠️ Build version: $BUILD_VERSION"
 # Handle --new flag: remove old session.id to force new session
 if [[ "${NEW_SESSION}" = "1" ]]; then
   echo "🔄 --new flag: creating new session"
-  if [[ -f "${QWEN_DIR}/session.id" ]]; then
-    rm -f "${QWEN_DIR}/session.id"
+  if [[ -f "${DEVCAGE_NODE_DIR}/session.id" ]]; then
+    rm -f "${DEVCAGE_NODE_DIR}/session.id"
   fi
 fi
 
 # Save Qwen session ID if not already exists
-if [[ ! -f "${QWEN_DIR}/session.id" ]]; then
-  qwen -p "show session id" --output-format json | jq -r '.[0].session_id' > "${QWEN_DIR}/session.id"
+if [[ ! -f "${DEVCAGE_NODE_DIR}/session.id" ]]; then
+  qwen -p "show session id" --output-format json | jq -r '.[0].session_id' > "${DEVCAGE_NODE_DIR}/session.id"
 fi
 
 # Read session ID for resume
-SESSION_ID=$(cat "${QWEN_DIR}/session.id" 2>/dev/null)
+SESSION_ID=$(cat "${DEVCAGE_NODE_DIR}/session.id" 2>/dev/null)
 
 echo "📋 Session ID: ${SESSION_ID}"
 
@@ -75,6 +86,10 @@ if [[ "${DEBUG_MODE}" = "1" ]]; then
   echo "   PROJECT_DIR: ${PROJECT_DIR}"
   echo "   BASE_DIR: ${BASE_DIR}"
   echo "   QWEN_DIR: ${QWEN_DIR}"
+  echo "   DEVCAGE_ROLE: ${DEVCAGE_ROLE}"
+  echo "   DEVCAGE_NODE: ${DEVCAGE_NODE}"
+  echo "   DEVCAGE_ROLE_DIR: ${DEVCAGE_ROLE_DIR}"
+  echo "   DEVCAGE_NODE_DIR: ${DEVCAGE_NODE_DIR}"
   echo "   NEW_SESSION: ${NEW_SESSION}"
   echo ""
   echo "🔹 Container is ready for debugging. Connect from outside and run 'qwen' manually."
