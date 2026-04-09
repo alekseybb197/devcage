@@ -4,7 +4,7 @@
 # ─── 1. Parse command line arguments ──────────────────────────
 DEBUG_MODE=0
 NEW_SESSION=0
-PROJECT_DIR=""
+ACP_MODE=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -16,35 +16,37 @@ while [[ $# -gt 0 ]]; do
             NEW_SESSION=1
             shift
             ;;
+        --acp)
+            ACP_MODE=1
+            shift
+            ;;
         --*)
             echo "Unknown option: $1" >&2
             exit 1
             ;;
         *)
-            if [ -z "${PROJECT_DIR}" ]; then
-                PROJECT_DIR="$1"
-            else
-                echo "Unexpected argument: $1" >&2
-                exit 1
-            fi
-            shift
+            echo "Unexpected argument: $1" >&2
+            exit 1
             ;;
     esac
 done
 
+DEVCAGE_PROJECT="${DEVCAGE_PROJECT:-}"
 BASE_DIR="/workspace"
-if [[ "x${PROJECT_DIR}" != "x" ]]; then
-  cd ${PROJECT_DIR}
-  BASE_DIR="${BASE_DIR}/${PROJECT_DIR}"
+if [[ "x${DEVCAGE_PROJECT}" != "x" ]]; then
+  cd "${BASE_DIR}/${DEVCAGE_PROJECT}"
+  BASE_DIR="${BASE_DIR}/${DEVCAGE_PROJECT}"
 fi
 
-# ─── 2. Initialize DEVCAGE_ROLE and DEVCAGE_NODE ──────────────
+# ─── 2. Initialize DEVCAGE_ROLE, DEVCAGE_WORKFLOW, and DEVCAGE_NODE ──────────────
 DEVCAGE_ROLE="${DEVCAGE_ROLE:-default}"
+DEVCAGE_WORKFLOW="${DEVCAGE_WORKFLOW:-default}"
 DEVCAGE_NODE="${DEVCAGE_NODE:-default}"
-DEVCAGE_NODE_DIR="${BASE_DIR}/.devcage/${DEVCAGE_NODE}"
+DEVCAGE_NODE_DIR="${BASE_DIR}/.devcage/${DEVCAGE_WORKFLOW}/${DEVCAGE_NODE}"
 
 echo "🎭 Devcage role: ${DEVCAGE_ROLE}"
 echo "🔗 Devcage node: ${DEVCAGE_NODE}"
+echo "📋 Devcage workflow: ${DEVCAGE_WORKFLOW}"
 
 QWEN_DIR="${BASE_DIR}/.qwen"
 test -d "${QWEN_DIR}/skills"   || mkdir -p "${QWEN_DIR}/skills"
@@ -80,23 +82,36 @@ SESSION_ID=$(cat "${DEVCAGE_NODE_DIR}/session.id" 2>/dev/null)
 
 echo "📋 Session ID: ${SESSION_ID}"
 
-# Debug mode: print environment and configuration
+# Debug/ACP mode: print environment and configuration, then wait
 if [[ "${DEBUG_MODE}" = "1" ]]; then
   echo "🔧 Debug mode enabled"
-  echo "   PROJECT_DIR: ${PROJECT_DIR}"
+  echo "   DEVCAGE_PROJECT: ${DEVCAGE_PROJECT}"
   echo "   BASE_DIR: ${BASE_DIR}"
   echo "   QWEN_DIR: ${QWEN_DIR}"
   echo "   DEVCAGE_ROLE: ${DEVCAGE_ROLE}"
+  echo "   DEVCAGE_WORKFLOW: ${DEVCAGE_WORKFLOW}"
   echo "   DEVCAGE_NODE: ${DEVCAGE_NODE}"
-  echo "   DEVCAGE_ROLE_DIR: ${DEVCAGE_ROLE_DIR}"
   echo "   DEVCAGE_NODE_DIR: ${DEVCAGE_NODE_DIR}"
   echo "   NEW_SESSION: ${NEW_SESSION}"
   echo ""
   echo "🔹 Container is ready for debugging. Connect from outside and run 'qwen' manually."
   echo "   Example: docker exec -it ${HOSTNAME} bash"
   echo ""
-  echo "⏳ Waiting indefinitely (sleep infinity)..."
-  sleep infinity
+  echo "⏳ Waiting indefinitely..."
+  exec tail -f /dev/null
+
+elif [[ "${ACP_MODE}" = "1" ]]; then
+  echo "🤖 ACP mode enabled"
+  echo "   DEVCAGE_PROJECT: ${DEVCAGE_PROJECT}"
+  echo "   DEVCAGE_ROLE: ${DEVCAGE_ROLE}"
+  echo "   DEVCAGE_WORKFLOW: ${DEVCAGE_WORKFLOW}"
+  echo "   DEVCAGE_NODE: ${DEVCAGE_NODE}"
+  echo ""
+  echo "🔹 Container is ready for ACP. Connect from outside and interact."
+  echo "   Example: docker exec -it ${HOSTNAME} bash"
+  echo ""
+  echo "⏳ Waiting indefinitely..."
+  exec tail -f /dev/null
 
 else
 
