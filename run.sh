@@ -12,9 +12,11 @@ NC='\033[0m'
 # ─── 1. Parse command line arguments ──────────────────────────
 DEBUG_MODE=0
 NEW_SESSION=0
+ACP_MODE=0
 PROJECT_PATH=""
 DEVCAGE_ROLE="${DEVCAGE_ROLE:-default}"
 DEVCAGE_NODE="${DEVCAGE_NODE:-default}"
+DEVCAGE_WORKFLOW="${DEVCAGE_WORKFLOW:-default}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -26,12 +28,20 @@ while [[ $# -gt 0 ]]; do
             NEW_SESSION=1
             shift
             ;;
+        --acp)
+            ACP_MODE=1
+            shift
+            ;;
         --role)
             DEVCAGE_ROLE="$2"
             shift 2
             ;;
         --node)
             DEVCAGE_NODE="$2"
+            shift 2
+            ;;
+        --workflow)
+            DEVCAGE_WORKFLOW="$2"
             shift 2
             ;;
         --help|-h)
@@ -42,8 +52,10 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --debug      Pass --debug flag to entrypoint (debug mode in container)"
             echo "  --new        Pass --new flag to entrypoint (new Qwen session)"
+            echo "  --acp        Pass --acp flag to entrypoint (ACP mode)"
             echo "  --role ROLE  Set DEVCAGE_ROLE (default: default)"
             echo "  --node NODE  Set DEVCAGE_NODE (default: default)"
+            echo "  --workflow WF Set DEVCAGE_WORKFLOW (default: default)"
             echo "  -h, --help   Show this help message"
             echo ""
             echo "Arguments:"
@@ -82,7 +94,7 @@ fi
 # ─── 2. Settings ──────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_PATH="$(cd "${PROJECT_PATH}" && pwd)"
-PROJECT_NAME="$(basename "${PROJECT_PATH}")"
+DEVCAGE_PROJECT="$(basename "${PROJECT_PATH}")"
 SESSION_NAME="devcage-${DEVCAGE_ROLE}-${DEVCAGE_NODE}"
 CONTAINER_NAME="devcage-${DEVCAGE_ROLE}-${DEVCAGE_NODE}"
 
@@ -139,8 +151,8 @@ echo -e "${GREEN}🎭 Role: ${BLUE}${DEVCAGE_ROLE}${NC}"
 echo -e "${GREEN}🔗 Node: ${BLUE}${DEVCAGE_NODE}${NC}"
 echo ""
 
-# ─── 5. tmux check (only if not in debug mode) ─────────────────
-if [ "${DEBUG_MODE}" = "0" ]; then
+# ─── 5. tmux check (only if not in debug mode and not in ACP mode) ─────────────────
+if [ "${DEBUG_MODE}" = "0" ] && [ "${ACP_MODE}" = "0" ]; then
     if ! command -v tmux &> /dev/null; then
         echo -e "${RED}❌ tmux not found!${NC}"
         echo -e "   Install: ${BLUE}brew install tmux${NC} (macOS) or ${BLUE}sudo apt install tmux${NC} (Linux)"
@@ -197,6 +209,7 @@ RM_FLAG="--rm"
 ENTRYPOINT_ARGS=""
 [ "${DEBUG_MODE}" = "1" ] && ENTRYPOINT_ARGS="${ENTRYPOINT_ARGS} --debug"
 [ "${NEW_SESSION}" = "1" ] && ENTRYPOINT_ARGS="${ENTRYPOINT_ARGS} --new"
+[ "${ACP_MODE}" = "1" ] && ENTRYPOINT_ARGS="${ENTRYPOINT_ARGS} --acp"
 
 cat > "${TMP_SCRIPT}" <<DOCKER_CMD
 #!/bin/bash
@@ -204,9 +217,16 @@ set -e
 # Ensure the session log directory exists and is writable
 mkdir -p "${SESSION_LOG_DIR}"
 chmod 777 "${SESSION_LOG_DIR}" 2>/dev/null || true
-docker run -it ${RM_FLAG} \
+
+# Determine run mode: -d for ACP (detached), -it for interactive
+DOCKER_RUN_ARGS="-it"
+if [ "${ACP_MODE}" = "1" ]; then
+    DOCKER_RUN_ARGS="-d"
+fi
+
+docker run \${DOCKER_RUN_ARGS} ${RM_FLAG} \
     --name "${CONTAINER_NAME}" \
-    -v "${PROJECT_PATH}:/workspace/${PROJECT_NAME}" \
+    -v "${PROJECT_PATH}:/workspace/${DEVCAGE_PROJECT}" \
     -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen:/home/agent/.qwen:ro" \
     -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen/agents:/home/agent/.qwen/agents" \
     -v "${HOME}/.devcage/roles/${DEVCAGE_ROLE}/.qwen/debug:/home/agent/.qwen/debug" \
@@ -222,10 +242,12 @@ docker run -it ${RM_FLAG} \
     -e QWEN_DEBUG=1 \
     -e DEVCAGE_ROLE="${DEVCAGE_ROLE}" \
     -e DEVCAGE_NODE="${DEVCAGE_NODE}" \
+    -e DEVCAGE_PROJECT="${DEVCAGE_PROJECT}" \
+    -e DEVCAGE_WORKFLOW="${DEVCAGE_WORKFLOW}" \
     -w /workspace \
     --user agent \
     --entrypoint /usr/local/bin/entrypoint.sh \
-    devcage:${IMAGE_TAG} ${PROJECT_NAME}${ENTRYPOINT_ARGS}
+    devcage:${IMAGE_TAG} ${ENTRYPOINT_ARGS}
 # Remove the temporary script after execution
 rm -f "${TMP_SCRIPT}"
 DOCKER_CMD
@@ -238,11 +260,24 @@ if [ ! -s "${TMP_SCRIPT}" ]; then
 fi
 
 # ─── 7. Launch container ──────────────────────────────────────────
-if [ "${DEBUG_MODE}" = "1" ]; then
-    # Debug mode: run directly in terminal (no tmux)
-    echo -e "${YELLOW}🔧 Debug mode: running container directly in terminal${NC}"
-    echo -e ""
+if [ "${DEBUG_MODE}" = "1" ] || [ "${ACP_MODE}" = "1" ]; then
+    # Debug/ACP mode: run directly in terminal (no tmux)
+    if [ "${ACP_MODE}" = "1" ]; then
+        echo -e "${GREEN}🤖 ACP mode: running container in detached mode${NC}"
+        echo -e ""
+    else
+        echo -e "${YELLOW}🔧 Debug mode: running container directly in terminal${NC}"
+        echo -e ""
+    fi
     bash "${TMP_SCRIPT}"
+
+    # Wait a moment for container to initialize and create session.id
+    sleep 2
+
+    # Get session ID from running container
+    DEVCAGE_SESSION=$(docker exec "${CONTAINER_NAME}" /bin/bash -c "cat /workspace/\${DEVCAGE_PROJECT}/.devcage/\${DEVCAGE_WORKFLOW}/\${DEVCAGE_NODE}/session.id" 2>/dev/null || echo "N/A")
+    echo -e ""
+    echo -e "${GREEN}📋 Session ID: ${BLUE}${DEVCAGE_SESSION}${NC}"
 else
     # Normal mode: run in tmux
     tmux new-session -d -s "${SESSION_NAME}" "${TMP_SCRIPT}"

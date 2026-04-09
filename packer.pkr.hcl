@@ -160,7 +160,8 @@ build {
       "apt-get update",
       "apt-get install -y nodejs",
       "rm -rf /var/lib/apt/lists/*",
-      "npm install -g @qwen-code/qwen-code@latest"
+      "npm install -g @qwen-code/qwen-code@latest",
+      "npm install -g @modelcontextprotocol/server-filesystem"
     ]
   }
 
