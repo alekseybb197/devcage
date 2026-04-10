@@ -74,7 +74,19 @@ fi
 
 # Save Qwen session ID if not already exists
 if [[ ! -f "${DEVCAGE_NODE_DIR}/session.id" ]]; then
-  qwen -p "show session id" --output-format json | jq -r '.[0].session_id' > "${DEVCAGE_NODE_DIR}/session.id"
+  echo "🔄 Creating new session ID..."
+  SESSION_OUTPUT=$(qwen -p "show session id" --output-format json 2>&1)
+  echo "📝 Qwen session output: ${SESSION_OUTPUT}"
+  SESSION_ID=$(echo "${SESSION_OUTPUT}" | jq -r '.[0].session_id' 2>/dev/null)
+  if [[ -n "${SESSION_ID}" && "${SESSION_ID}" != "null" ]]; then
+    echo "${SESSION_ID}" > "${DEVCAGE_NODE_DIR}/session.id"
+    echo "✅ Session ID created: ${SESSION_ID}"
+  else
+    echo "⚠️ Warning: Failed to create session ID, using placeholder" >&2
+    echo "session-not-created" > "${DEVCAGE_NODE_DIR}/session.id"
+  fi
+else
+  echo "ℹ️  Using existing session ID"
 fi
 
 # Read session ID for resume
