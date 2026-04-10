@@ -271,11 +271,37 @@ if [ "${DEBUG_MODE}" = "1" ] || [ "${ACP_MODE}" = "1" ]; then
     fi
     bash "${TMP_SCRIPT}"
 
-    # Wait a moment for container to initialize and create session.id
-    sleep 2
+    # Wait for container to initialize and create session.id with timeout (5 minutes)
+    echo -e "${GREEN}⏳ Waiting for session ID to be created...${NC}"
+    MAX_WAIT=300  # 5 minutes in seconds
+    CHECK_INTERVAL=5  # Check every 5 seconds
+    ELAPSED=0
+    DEVCAGE_SESSION=""
 
-    # Get session ID from running container
-    DEVCAGE_SESSION=$(docker exec "${CONTAINER_NAME}" /bin/bash -c "cat /workspace/\${DEVCAGE_PROJECT}/.devcage/\${DEVCAGE_WORKFLOW}/\${DEVCAGE_NODE}/session.id" 2>/dev/null || echo "N/A")
+    while [ ${ELAPSED} -lt ${MAX_WAIT} ]; do
+        sleep ${CHECK_INTERVAL}
+        ELAPSED=$((ELAPSED + CHECK_INTERVAL))
+
+        DEVCAGE_SESSION=$(docker exec "${CONTAINER_NAME}" /bin/bash -c "cat /workspace/\${DEVCAGE_PROJECT}/.devcage/\${DEVCAGE_WORKFLOW}/\${DEVCAGE_NODE}/session.id" 2>/dev/null || echo "")
+
+        # Check if we got a valid session ID (not empty, not N/A, not placeholder)
+        if [[ -n "${DEVCAGE_SESSION}" && "${DEVCAGE_SESSION}" != "N/A" && "${DEVCAGE_SESSION}" != "session-not-created" ]]; then
+            echo -e "${GREEN}✅ Session ID created successfully${NC}"
+            break
+        fi
+
+        # Progress indicator every 15 seconds
+        if [ $((ELAPSED % 15)) -eq 0 ]; then
+            echo -e "${YELLOW}   Still waiting... (${ELAPSED}s/${MAX_WAIT}s)${NC}"
+        fi
+    done
+
+    if [[ -z "${DEVCAGE_SESSION}" || "${DEVCAGE_SESSION}" == "N/A" || "${DEVCAGE_SESSION}" == "session-not-created" ]]; then
+        echo -e "${YELLOW}⚠️  Session ID was not created within ${MAX_WAIT} seconds${NC}"
+        echo -e "${YELLOW}   Check container logs for details: docker logs ${CONTAINER_NAME}${NC}"
+        DEVCAGE_SESSION="N/A"
+    fi
+
     echo -e ""
     echo -e "${GREEN}📋 Session ID: ${BLUE}${DEVCAGE_SESSION}${NC}"
 else
